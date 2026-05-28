@@ -194,6 +194,42 @@ async def handle(incoming_sock: socket.socket, incoming_remote_addr):
         sys.exit("handle should not raise exception")
 
 
+CLIENT_TIMEOUT = 20  # seconds of inactivity before thread closes
+
+client_loops: dict = {}
+client_loops_lock = threading.Lock()
+
+
+class ClientLoop:
+    def __init__(self, client_ip: str):
+        self.client_ip = client_ip
+        self.loop = asyncio.new_event_loop()
+        self._timer = None
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
+
+    def _run(self):
+        print(f"[+] Thread started for {self.client_ip}")
+        self.loop.run_forever()
+        self.loop.close()
+        with client_loops_lock:
+            client_loops.pop(self.client_ip, None)
+        print(f"[-] Thread closed for {self.client_ip} (idle timeout)")
+
+    def _shutdown(self):
+        self.loop.stop()
+
+    def _reset_timer(self):
+        if self._timer:
+            self._timer.cancel()
+        self._timer = self.loop.call_later(CLIENT_TIMEOUT, self._shutdown)
+
+    def submit(self, sock: socket.socket, addr):
+        # print(f"[>] New connection from {addr[0]}:{addr[1]}")
+        self.loop.call_soon_threadsafe(self._reset_timer)
+        asyncio.run_coroutine_threadsafe(handle(sock, addr), self.loop)
+
+
 async def main():
     mother_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     mother_sock.setblocking(False)
@@ -212,7 +248,11 @@ async def main():
         incoming_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 11)
         incoming_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 2)
         incoming_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
-        asyncio.create_task(handle(incoming_sock, addr))
+        client_ip = addr[0]
+        with client_loops_lock:
+            if client_ip not in client_loops:
+                client_loops[client_ip] = ClientLoop(client_ip)
+            client_loops[client_ip].submit(incoming_sock, addr)
 
 
 if __name__ == "__main__":
