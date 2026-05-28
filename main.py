@@ -64,8 +64,7 @@ async def relay_main_loop(sock_1: socket.socket, sock_2: socket.socket, peer_tas
                 peer_task.cancel()
                 return
     except Exception:
-        traceback.print_exc()
-        sys.exit("relay main loop error!")
+        pass
 
 
 async def handle(incoming_sock: socket.socket, incoming_remote_addr):
@@ -209,6 +208,7 @@ class ClientLoop:
         self.thread.start()
 
     def _run(self):
+        self.loop.set_exception_handler(lambda loop, ctx: None)
         print(f"[+] Thread started for {self.client_ip}")
         self.loop.run_forever()
         self.loop.close()
