@@ -55,7 +55,7 @@ class FakeTcpInjector(TcpInjector):
                 sys.exit("not implemented method!")
 
     def on_unexpected_packet(self, packet: Packet, connection: FakeInjectiveConnection, info_m: str):
-        print(info_m, packet)
+        # print(info_m, packet)
         connection.sock.close()
         connection.peer_sock.close()
         connection.monitor = False

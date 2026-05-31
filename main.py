@@ -193,7 +193,7 @@ async def handle(incoming_sock: socket.socket, incoming_remote_addr):
         sys.exit("handle should not raise exception")
 
 
-CLIENT_TIMEOUT = 20  # seconds of inactivity before thread closes
+CLIENT_TIMEOUT = 60  # seconds of inactivity before thread closes
 
 client_loops: dict = {}
 client_loops_lock = threading.Lock()
